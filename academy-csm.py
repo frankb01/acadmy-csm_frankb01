@@ -1,121 +1,96 @@
 import streamlit as st
 from openai import OpenAI
 from io import BytesIO
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 
-# --- CONFIGURATION DE LA PAGE ---
+# 1. Configuration
 st.set_page_config(page_title="CSM Academy Pro", page_icon="🎓", layout="wide")
-
-# --- INITIALISATION API ---
-if "OPENAI_API_KEY" not in st.secrets:
-    st.error("Clé API manquante dans les Secrets Streamlit !")
-    st.stop()
-
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# --- FONCTION TEXT-TO-SPEECH (TTS) ---
-def speak(text):
+# Connexion Google Sheets
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# --- FONCTIONS DE DONNÉES ---
+def load_user_level(user_id):
     try:
-        response = client.audio.speech.create(
-            model="tts-1",
-            voice="nova", # Voix claire et pédagogique
-            input=text
-        )
-        audio_data = BytesIO(response.content)
-        st.audio(audio_data, format="audio/mp3", autoplay=True)
-    except Exception as e:
-        st.error(f"Erreur de lecture vocale : {e}")
+        df = conn.read(ttl=0)
+        user_data = df[df['user_id'] == user_id]
+        if not user_data.empty:
+            return int(user_data.iloc[0]['level'])
+    except:
+        pass
+    return 1
 
-# --- SYSTÈME D'AUTHENTIFICATION & PROGRESSION ---
+def save_user_level(user_id, level):
+    df = conn.read(ttl=0)
+    if user_id in df['user_id'].values:
+        df.loc[df['user_id'] == user_id, 'level'] = level
+    else:
+        new_row = pd.DataFrame({"user_id": [user_id], "level": [level]})
+        df = pd.concat([df, new_row], ignore_index=True)
+    conn.update(data=df)
+
+def speak(text):
+    response = client.audio.speech.create(model="tts-1", voice="nova", input=text)
+    st.audio(BytesIO(response.content), format="audio/mp3", autoplay=True)
+
+# --- AUTHENTIFICATION ---
 if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-if not st.session_state.authenticated:
-    st.title("🎓 Bienvenue à la CSM Academy")
-    st.write("Connectez-vous pour reprendre votre progression.")
-    
-    user_id = st.text_input("Votre Email ou Pseudo :", key="login_input")
-    if st.button("Démarrer l'apprentissage"):
-        if user_id:
-            st.session_state.user_id = user_id
+    st.title("🎓 CSM Academy : Connexion")
+    u_id = st.text_input("Votre Email :")
+    if st.button("Se connecter / Créer un compte"):
+        if u_id:
+            st.session_state.user_id = u_id
+            st.session_state.level = load_user_level(u_id)
             st.session_state.authenticated = True
-            # Initialisation par défaut (Ici on pourrait charger depuis une DB)
-            st.session_state.level = 1
-            st.session_state.messages_academy = []
-            st.session_state.show_next_button = False
+            st.session_state.messages = []
+            st.session_state.show_next = False
             st.rerun()
-        else:
-            st.warning("Veuillez entrer un identifiant.")
     st.stop()
 
-# --- DONNÉES DES MODULES ---
-LEVELS = {
-    1: {"titre": "🌱 Fondamentaux", "desc": "Le rôle du CSM et le cycle de vie client."},
-    2: {"titre": "📊 Data & Métriques", "desc": "Maîtriser le Churn et le Health Score."},
-    3: {"titre": "🤝 Stratégie & QBR", "desc": "Mener des revues d'affaires."},
-    4: {"titre": "🚀 Expansion", "desc": "Upsell et Advocacy."}
-}
+# --- COURS ---
+LEVELS = {1: "🌱 Fondamentaux", 2: "📊 Métriques", 3: "🤝 Stratégie", 4: "🚀 Expansion"}
+st.title(f"Module {st.session_state.level} : {LEVELS[st.session_state.level]}")
 
-# --- BARRE LATÉRALE ---
-with st.sidebar:
-    st.title(f"👤 {st.session_state.user_id}")
-    st.progress(st.session_state.level / 4)
-    st.write(f"Niveau actuel : {st.session_state.level}/4")
-    st.divider()
-    if st.button("🚪 Déconnexion"):
-        st.session_state.clear()
-        st.rerun()
-
-# --- INTERFACE PRINCIPALE ---
-st.title(f"Module {st.session_state.level} : {LEVELS[st.session_state.level]['titre']}")
-
-# Affichage de l'historique
-for msg in st.session_state.messages_academy:
+for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Premier lancement du module
-if not st.session_state.messages_academy:
-    prompt_init = f"Je suis prêt pour le niveau {st.session_state.level}. Enseigne-moi un concept et donne-moi un exercice."
-    with st.spinner("Le mentor prépare le cours..."):
-        response = client.chat.completions.create(
+if not st.session_state.messages:
+    with st.spinner("Chargement du cours..."):
+        resp = client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Tu es un mentor CSM. Explique un concept et donne UN exercice. Si l'élève réussit, termine par BRAVO_SUIVANT."},
-                {"role": "user", "content": prompt_init}
-            ]
+            messages=[{"role": "system", "content": f"Tu es un mentor CSM. Enseigne le niveau {st.session_state.level}. Finis par un exercice et 'BRAVO_SUIVANT' si réussi."}]
         )
-        ai_resp = response.choices[0].message.content
-        st.session_state.messages_academy.append({"role": "assistant", "content": ai_resp})
+        txt = resp.choices[0].message.content
+        st.session_state.messages.append({"role": "assistant", "content": txt})
         st.rerun()
 
-# Zone de contrôle Vocal & Réponse
-last_ai_msg = [m for m in st.session_state.messages_academy if m["role"] == "assistant"][-1]
+# Bouton de lecture vocale
+if st.button("🔈 Écouter la consigne"):
+    speak(st.session_state.messages[-1]["content"])
 
-col_vocal, col_next = st.columns([1, 1])
-with col_vocal:
-    if st.button("🔈 Écouter la consigne"):
-        speak(last_ai_msg["content"])
-
-if st.session_state.show_next_button:
-    st.success("Module validé !")
+# Gestion des réponses
+if st.session_state.show_next:
     if st.button("Passer au niveau suivant ➡️"):
         st.session_state.level += 1
-        st.session_state.messages_academy = []
-        st.session_state.show_next_button = False
+        save_user_level(st.session_state.user_id, st.session_state.level)
+        st.session_state.messages = []
+        st.session_state.show_next = False
         st.rerun()
 else:
-    user_input = st.chat_input("Votre réponse...")
-    if user_input:
-        st.session_state.messages_academy.append({"role": "user", "content": user_input})
+    ans = st.chat_input("Répondez ici...")
+    if ans:
+        st.session_state.messages.append({"role": "user", "content": ans})
         with st.chat_message("assistant"):
-            with st.spinner("Analyse de votre réponse..."):
-                response = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[{"role": "system", "content": "Analyse la réponse. Si correcte, finis par BRAVO_SUIVANT."}] + st.session_state.messages_academy
-                )
-                ai_resp = response.choices[0].message.content
-                st.markdown(ai_resp)
-                st.session_state.messages_academy.append({"role": "assistant", "content": ai_resp})
-                if "BRAVO_SUIVANT" in ai_resp:
-                    st.session_state.show_next_button = True
-                    st.rerun()
+            resp = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "system", "content": "Analyse. Si OK, dis BRAVO_SUIVANT."}] + st.session_state.messages
+            )
+            ai_txt = resp.choices[0].message.content
+            st.markdown(ai_txt)
+            st.session_state.messages.append({"role": "assistant", "content": ai_txt})
+            if "BRAVO_SUIVANT" in ai_txt:
+                st.session_state.show_next = True
+                st.rerun()
