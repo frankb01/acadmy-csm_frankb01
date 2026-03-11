@@ -171,15 +171,20 @@ if st.session_state.show_next:
         st.session_state.show_next = False
         st.rerun()
 else:
-    user_input = st.chat_input("Répondez à l'exercice ici...")
+user_input = st.chat_input("Répondez à l'exercice ici...")
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("assistant"):
             with st.spinner("Analyse du mentor..."):
-                resp = client.chat.completions.create(model="gpt-4o", messages=st.session_state.messages)
+                resp = client.chat.completions.create(
+                    model="gpt-4o", 
+                    messages=st.session_state.messages
+                )
                 ai_txt = resp.choices[0].message.content
                 st.markdown(ai_txt)
                 st.session_state.messages.append({"role": "assistant", "content": ai_txt})
+                
+                # LA CORRECTION EST ICI :
                 if "BRAVO_SUIVANT" in ai_txt:
                     st.session_state.show_next = True
-                    st.rerun()
+                    st.rerun()  # Force Streamlit à recharger pour afficher le bouton vert
