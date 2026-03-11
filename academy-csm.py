@@ -171,7 +171,7 @@ if st.session_state.show_next:
         st.session_state.show_next = False
         st.rerun()
 else:
-user_input = st.chat_input("Répondez à l'exercice ici...")
+    user_input = st.chat_input("Répondez à l'exercice ici...")
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("assistant"):
