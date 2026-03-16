@@ -34,14 +34,46 @@ def speak(text):
 
 # --- 3. CURRICULUM ---
 LEVELS = {
-    1: {"titre": "🌱 Fondamentaux & Culture SaaS", "desc": "Cycle de vie client (LTV), Time-to-Value (TTV) et modèle d'abonnement."},
-    2: {"titre": "🚀 Onboarding & Adoption", "desc": "Réussir l'implémentation technique et favoriser l'usage produit."},
-    3: {"titre": "📊 Métriques de Performance (SaaS)", "desc": "Maîtrise du NRR, GRR, Churn (Logo vs Revenue) et CLV."},
-    4: {"titre": "🔍 Health Scoring & Data", "desc": "Construire un score de santé (usage, tickets, NPS) pour prédire l'attrition."},
-    5: {"titre": "🛡️ Gestion des Risques & Rétention", "desc": "Playbooks de sauvetage de comptes et gestion des escalades."},
-    6: {"titre": "📈 Strategic Business Reviews (QBR)", "desc": "Démontrer le ROI aux décideurs (C-Level) lors des revues trimestrielles."},
-    7: {"titre": "💰 Expansion & Stratégie de Revenu", "desc": "Upsell, Cross-sell et techniques de négociation pour CSM."},
-    8: {"titre": "👑 Advocacy & Leadership", "desc": "Transformer les clients en ambassadeurs et piloter la stratégie Success."}
+    1: {
+        "titre": "🌱 Fondamentaux & Culture SaaS", 
+        "desc": "Introduction à l'économie de l'abonnement et au rôle pivot du CSM dans la croissance.",
+        "goals": "Différence Support vs Success, Customer Life Cycle, LTV (Lifetime Value), CAC (Customer Acquisition Cost)."
+    },
+    2: {
+        "titre": "🚀 Onboarding & Adoption", 
+        "desc": "La phase critique après la vente. Comment garantir que le client utilise le produit rapidement.",
+        "goals": "Time-to-First-Value (TTFV), Milestones d'implémentation, Taux d'activation des fonctionnalités clés."
+    },
+    3: {
+        "titre": "📊 Métriques de Performance (SaaS)", 
+        "desc": "Analyse financière de la base client. C'est ici et UNIQUEMENT ici qu'on parle de calculs de revenus.",
+        "goals": "NRR (Net Retention Rate), GRR (Gross Retention Rate), Churn (Logo vs Revenue), Expansion Revenue."
+    },
+    4: {
+        "titre": "🔍 Health Scoring & Data", 
+        "desc": "Passer du mode réactif au mode proactif grâce à la donnée d'usage.",
+        "goals": "Construction d'un Health Score, Signaux faibles d'attrition, Segmentation (Red/Amber/Green), Analyse de l'engagement."
+    },
+    5: {
+        "titre": "🛡️ Gestion des Risques & Rétention", 
+        "desc": "Comment réagir quand un client veut partir ou qu'un sponsor quitte l'entreprise.",
+        "goals": "Playbooks d'escalade, Plan de sauvegarde (Save Plan), Gestion des objections, Sortie de crise (Turnaround)."
+    },
+    6: {
+        "titre": "📈 Strategic Business Reviews (QBR)", 
+        "desc": "Démontrer la valeur métier aux décideurs (C-Level) pour sécuriser le renouvellement.",
+        "goals": "Préparation d'une QBR (Quarterly Business Review), Présentation du ROI, Alignement sur les objectifs business du client."
+    },
+    7: {
+        "titre": "💰 Expansion & Stratégie de Revenu", 
+        "desc": "Le CSM comme moteur de croissance. Identifier les opportunités au sein du parc existant.",
+        "goals": "Upsell (montée en gamme), Cross-sell (produits annexes), Lead generation pour les Sales, Négociation de renouvellement."
+    },
+    8: {
+        "titre": "👑 Advocacy & Leadership", 
+        "desc": "Transformer le succès client en stratégie d'entreprise globale.",
+        "goals": "Programmes d'ambassadeurs (Advocacy), Témoignages clients (Case Studies), Feedback Loop vers le Produit, Vision stratégique du CSM."
+    }
 }
 
 # --- 4. AUTHENTIFICATION ---
@@ -86,30 +118,26 @@ st.header(f"Module {st.session_state.level} : {LEVELS[st.session_state.level]['t
 
 # Premier message du mentor
 if not st.session_state.messages:
+    level_info = LEVELS[st.session_state.level]
+
     system_prompt = {
         "role": "system",
-        "content": f"""Tu es un Mentor Senior en Customer Success Management (SaaS). 
-        Tu enseignes le module {st.session_state.level} : {LEVELS[st.session_state.level]['titre']}.
+        "content": f"""Tu es un Mentor Senior en Customer Success. 
+        Tu enseignes le Module {st.session_state.level} : {level_info['titre']}.
 
-        --- CLAUSE DE SÉCURITÉ MÉTIER ---
-        INTERDICTION STRICTE de parler de Scrum, de Sprints, de Velocity, de Story Points ou de développement logiciel. 
-        Ton domaine est exclusivement le SUCCÈS CLIENT et la RÉTENTION et tout ce qui touche au CUSTOMER SUCCESS MANAGER. Si tu parles de performance, c'est la performance du compte client (Business) et non de l'équipe technique.
+        TON PÉRIMÈTRE STRICT POUR CE MODULE :
+        {level_info['desc']}
+        
+        NOTIONS CLÉS À COUVRIR (ET RIEN D'AUTRE) :
+        {level_info['goals']}
 
-        --- CONTENU OBLIGATOIRE POUR LE MODULE 3 (MÉTRIQUES CSM) ---
-        Tu dois impérativement enseigner ces KPIs :
-        - NRR (Net Retention Rate) & GRR (Gross Retention Rate).
-        - Churn Rate (Logo churn vs Revenue churn).
-        - CLV (Customer Lifetime Value).
-        - Health Score (Usage, Adoption, Satisfaction).
-        - NPS (Net Promoter Score) & CSAT.
+        CONSIGNES ANTI-RÉPÉTITION :
+        - INTERDICTION de parler de Scrum/Agile.
+        - Ne parle PAS du NRR ou du Churn si tu n'es pas au Module 3.
+        - Chaque module doit être une nouvelle étape logique.
 
-        STRUCTURE DE TA RÉPONSE :
-        1. Théorie Approfondie sur ces KPIs SaaS.
-        2. Framework : Comment construire un dashboard de rétention.
-        3. Étude de Cas : Un client dont le NRR chute malgré un bon NPS.
-        4. Exercice : Demande au candidat de calculer un NRR ou de proposer un plan d'action pour sauver un compte en "Churn risque".
-
-        Termine par 'BRAVO_SUIVANT' uniquement si la réponse démontre une maîtrise de ces indicateurs BUSINESS."""
+        STRUCTURE : Théorie -> Framework -> Cas Pratique -> Exercice.
+        Termine par BRAVO_SUIVANT pour valider."""
     }
     st.session_state.messages.append(system_prompt)
     with st.spinner("Le mentor prépare le cours..."):
